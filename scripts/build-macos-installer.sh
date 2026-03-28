@@ -64,9 +64,10 @@ echo "==> Installing openclaw into staging payload..."
 
 # 6. Clean Up Unnecessary Binaries
 echo "==> Cleaning up bundled Node binaries (npm, npx, corepack)..."
-rm -f "$OPT_OPENCLAW/bin/npm" "$OPT_OPENCLAW/bin/npx" "$OPT_OPENCLAW/bin/corepack"
-rm -rf "$OPT_OPENCLAW/lib/node_modules/npm"
-rm -rf "$OPT_OPENCLAW/lib/node_modules/corepack"
+# Retain npm, npx, and corepack binaries (no removal)
+# rm -f "$OPT_OPENCLAW/bin/npm" "$OPT_OPENCLAW/bin/npx" "$OPT_OPENCLAW/bin/corepack"
+# rm -rf "$OPT_OPENCLAW/lib/node_modules/npm"
+# rm -rf "$OPT_OPENCLAW/lib/node_modules/corepack"
 
 # 6.5 Replace openclaw symlink with an absolute path wrapper
 echo "==> Creating explicit node wrapper script..."
@@ -83,7 +84,8 @@ echo "==> Creating postinstall script..."
 cat << 'EOF' > "$PKG_SCRIPTS/postinstall"
 #!/bin/bash
 # MacOS installer postinstall script
-# Creates the symlink in /usr/local/bin to our bundled openclaw
+# Creates a wrapper script in /usr/local/bin to our bundled openclaw
+# which sets the NODE_PATH environment variable for plugins to use our bundled SDK
 
 TARGET_DIR="/usr/local/bin"
 EXECUTABLE="/opt/openclaw/bin/openclaw"
@@ -96,8 +98,15 @@ if [ ! -d "$TARGET_DIR" ]; then
   chmod 755 "$TARGET_DIR"
 fi
 
-# Create symlink
-ln -sf "$EXECUTABLE" "$LINK_NAME"
+# Create wrapper script
+rm -f "$LINK_NAME"
+cat << 'WRAPPER' > "$LINK_NAME"
+#!/bin/bash
+export NODE_PATH="/opt/openclaw/lib/node_modules${NODE_PATH:+:$NODE_PATH}"
+exec "/opt/openclaw/bin/openclaw" "$@"
+WRAPPER
+
+chmod +x "$LINK_NAME"
 EOF
 chmod +x "$PKG_SCRIPTS/postinstall"
 
